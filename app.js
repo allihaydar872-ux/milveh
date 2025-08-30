@@ -387,34 +387,37 @@
   }
 
   /* ====== بطاقة + QR ====== */
-  function openCardModal(v){
-  const area=document.getElementById('vehCardInfo');
-  area.innerHTML=`
-    <div><strong>رقم المركبة:</strong> ${v.num||'-'}</div>
-    <div><strong>الشركة:</strong> ${v.maker||'-'}</div>
-    <div><strong>الاسم:</strong> ${v.name||'-'}</div>
-    <div><strong>النوع:</strong> ${v.carType||'-'}</div>
-    <div><strong>الموديل:</strong> ${v.model||'-'}</div>
-    <div><strong>اللون:</strong> ${v.color||'-'}</div>
-    <div><strong>الوحدة:</strong> ${v.unit||'-'}</div>
-    <div><strong>الحالة:</strong> ${v.status||'-'}</div>
+  function openCardModal(v) {
+  const area = document.getElementById('vehCardInfo');
+  area.innerHTML = `
+    <h4>بيانات المركبة</h4>
+    <div><strong>رقم المركبة:</strong> ${v.num || '-'}</div>
+    <div><strong>الشركة:</strong> ${v.maker || '-'}</div>
+    <div><strong>الاسم:</strong> ${v.name || '-'}</div>
+    <div><strong>النوع:</strong> ${v.carType || '-'}</div>
+    <div><strong>الموديل:</strong> ${v.model || '-'}</div>
+    <div><strong>اللون:</strong> ${v.color || '-'}</div>
+    <div><strong>الوحدة:</strong> ${v.unit || '-'}</div>
+    <div><strong>الحالة:</strong> ${v.status || '-'}</div>
   `;
 
-  // توليد QR جديد
-  document.getElementById('qrcode').innerHTML="";
-  const base=location.origin+location.pathname;
-  const url=`${base}?q=${encodeURIComponent(v.num||'')}`;
+  // 🔗 استبدل الرابط برابط Netlify الجديد
+  const url = `https://magical-kulfi-4b01c1.netlify.app/?q=${encodeURIComponent(v.num || '')}`;
+
+  document.getElementById('qrcode').innerHTML = "";
   new QRCode(document.getElementById("qrcode"), {
     text: url,
-    width: 160,
-    height: 160,
-    colorDark : "#000",
-    colorLight : "#fff",
-    correctLevel : QRCode.CorrectLevel.H
+    width: 180,
+    height: 180,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
   });
 
   document.getElementById('cardModal').classList.add('open');
 }
+
+
 
 document.getElementById('closeCard').onclick=()=> document.getElementById('cardModal').classList.remove('open');
 document.getElementById('printCard').onclick=()=>{
@@ -610,3 +613,22 @@ document.getElementById('printCard').onclick=()=>{
   }
 
 })();
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get("q");
+
+  if (q) {
+    // 🔹 اخفي الواجهة الأساسية
+    document.querySelector("header").style.display = "none";
+    document.querySelector("main").style.display = "none";
+
+    // 🔹 ابحث المركبة المطلوبة (بدل المثال ببياناتك الحقيقية)
+    const vehicle = vehicles.find(v => v.num === q);
+
+    if (vehicle) {
+      openCardModal(vehicle);  // اعرض البطاقة
+    } else {
+      document.body.innerHTML = `<h2 style="text-align:center">❌ المركبة برقم ${q} غير موجودة</h2>`;
+    }
+  }
+});
