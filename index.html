@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="desert">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>نظام إدارة المركبات العسكرية</title>
+  <meta name="description" content="تطبيق ويب لإدارة المركبات العسكرية مع حفظ محلي، تصدير/استيراد، إحصائيات، تخصيص أعمدة، بطاقة مركبة، Virtual Rows، فلاتر وفرز، نسخ احتياطي، CSV، PDF، PWA، أدوار مستخدمين، تراجع/إعادة، وتحديد متعدد." />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- مكتبات Excel و PDF -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- تطبيق -->
+  <script defer src="app.js"></script>
+</head>
+<body>
+
+  <header>
+    <h1>نظام إدارة المركبات العسكرية</h1>
+    <button id="addBtn" class="add" data-edit-only>➕ إضافة</button>
+    <button id="exportBtn" class="secondary">⤓ JSON</button>
+    <button id="xlsxExportBtn" class="secondary">⬇️ Excel</button>
+    <button id="xlsxImportBtn" class="secondary" data-edit-only>⬆️ Excel</button>
+    <input id="xlsxFile" type="file" accept=".xlsx" hidden />
+    <button id="csvExportBtn" class="secondary">⬇️ CSV</button>
+    <button id="printBtn" class="secondary">🖨️ طباعة</button>
+    <button id="pdfBtn" class="secondary">📑 تقرير PDF</button>
+    <button id="seedBtn" class="secondary">🪄 تعبئة بيانات</button>
+    <button id="undoBtn" class="secondary" data-edit-only>↶ تراجع</button>
+    <button id="redoBtn" class="secondary" data-edit-only>↷ إعادة</button>
+    <button id="bulkBtn" class="secondary" data-edit-only>☑️ تحديد متعدد</button>
+    <button id="backupBtn" class="secondary">💾 نسخ احتياطي</button>
+    <button id="restoreBtn" class="secondary">↩️ استرجاع</button>
+    <button id="colsBtn" class="secondary">⚙️ الأعمدة</button>
+    <button id="themeBtn" class="secondary">🎨 النمط</button>
+    <button id="helpBtn" class="secondary">⌨️ المساعدة</button>
+    <span style="margin-inline-start:auto"></span>
+    <button id="loginBtn" class="add">🔐 دخول</button>
+    <button id="logoutBtn" class="secondary hidden">🚪 خروج</button>
+    <button id="acctBtn" class="secondary hidden">👤 إعدادات الأدوار</button>
+  </header>
+
+  <main class="container">
+    <input id="q" class="search" placeholder="🔎 بحث سريع... رقم/اسم/نوع/وحدة/سائق" />
+
+    <div id="quickFilters" style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="secondary" data-status="">الكل</button>
+      <button class="secondary" data-status="جاهزة">✅ جاهزة</button>
+      <button class="secondary" data-status="صيانة">🛠️ صيانة</button>
+      <button class="secondary" data-status="منتشرة">🚚 منتشرة</button>
+      <button class="secondary" data-status="خارج الخدمة">⛔ خارج الخدمة</button>
+      <span id="resCount" style="margin-inline-start:auto;opacity:.7;font-size:12px"></span>
+    </div>
+
+    <section class="dashboard" id="dashboardStats"></section>
+
+    <div class="table-wrap" id="tableViewport">
+      <table id="vehTable" aria-label="جدول المركبات">
+        <thead><tr id="headerRow"></tr></thead>
+        <tbody id="vehTbody"></tbody>
+      </table>
+    </div>
+
+    <div id="bulkBar" class="bulkbar">
+      <span id="bulkCount">0 محدد</span>
+      <button id="bulkDelete" class="danger" data-edit-only>حذف المحدد</button>
+      <button id="bulkStatusReady" class="secondary" data-edit-only>تعيين: جاهزة</button>
+      <button id="bulkStatusMaint" class="secondary" data-edit-only>تعيين: صيانة</button>
+      <button id="bulkStatusDeploy" class="secondary" data-edit-only>تعيين: منتشرة</button>
+      <button id="bulkStatusOut" class="secondary" data-edit-only>تعيين: خارج الخدمة</button>
+      <button id="bulkExportCSV" class="secondary">⬇️ CSV (المحدد)</button>
+      <button id="bulkExportXLSX" class="secondary">⬇️ Excel (المحدد)</button>
+    </div>
+
+    <p style="opacity:.7;font-size:12px;margin-top:10px">الحفظ محليًا على جهازك. التعديلات المحمية تتطلب دور "محرر" أو "مدير".</p>
+  </main>
+
+  <!-- نافذة النموذج -->
+  <div class="modal" id="formModal" aria-hidden="true">
+    <div class="dialog">
+      <header>
+        <h3>🚙 مركبة</h3>
+        <button id="closeForm" class="secondary">✕</button>
+      </header>
+      <div class="body">
+        <input type="hidden" id="vehId" />
+        <div class="form-grid" id="formFields"></div>
+      </div>
+      <footer>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">
+          <div>
+            <button id="prevTab" class="secondary">⬅️ السابق</button>
+            <button id="nextTab" class="secondary">التالي ➡️</button>
+          </div>
+          <div style="margin-inline-start:auto;display:flex;gap:8px">
+            <button id="saveVeh" class="save hidden">✅ إنهاء وحفظ</button>
+            <button id="resetForm" class="secondary">تفريغ</button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- تخصيص الأعمدة -->
+  <div class="modal" id="colsModal">
+    <div class="dialog">
+      <header>
+        <h3>⚙️ تخصيص الأعمدة</h3>
+        <button id="closeCols" class="secondary">✕</button>
+      </header>
+      <div class="body">
+        <div id="colsForm" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"></div>
+        <p id="colsCount" style="margin-top:10px;color:#ddd"></p>
+      </div>
+      <footer>
+        <button id="toggleAll" class="secondary">✔️ تحديد/إلغاء الكل</button>
+        <button id="saveCols" class="save">✅ حفظ</button>
+      </footer>
+    </div>
+  </div>
+
+ <!-- بطاقة المركبة -->
+<div class="modal" id="cardModal">
+  <div class="veh-card-pro">
+    <header><h2>🪪 بطاقة المركبة</h2></header>
+    <section class="veh-info-grid" id="vehCardInfo"></section>
+    <div class="qr-section">
+      <div id="qrcode"></div>
+      <p>امسح الكود لفتح النظام مباشرة</p>
+    </div>
+    <footer style="text-align:center;margin-top:10px">
+      <button id="printCard" class="save">🖨️ طباعة البطاقة</button>
+      <button id="closeCard" class="secondary">✖️ إغلاق</button>
+    </footer>
+  </div>
+</div>
+
+
+  <!-- مُعالج استيراد Excel -->
+  <div class="modal" id="importModal">
+    <div class="dialog">
+      <header>
+        <h3>⬆️ مُعالج استيراد Excel</h3>
+        <button id="closeImport" class="secondary">✕</button>
+      </header>
+      <div class="body">
+        <div id="importSummary" style="margin-bottom:8px;color:var(--muted)"></div>
+        <div id="mapper" class="map-grid"></div>
+        <p id="mapHint" class="hint">يمكن تعديل أي مطابقة يدويًا. الأعمدة غير المربوطة ستُملأ بقيم فارغة.</p>
+        <div id="importReport" style="margin-top:8px"></div>
+      </div>
+      <footer>
+        <button id="applyImport" class="save" data-edit-only>استيراد ودمج</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- نافذة المساعدة -->
+  <div class="modal" id="helpModal">
+    <div class="dialog">
+      <header>
+        <h3>⌨️ اختصارات سريعة</h3>
+        <button class="secondary" onclick="document.getElementById('helpModal').classList.remove('open')">✕</button>
+      </header>
+      <div class="body" style="line-height:1.9">
+        <div> / : تركيز البحث</div>
+        <div> n : إضافة سجل جديد</div>
+        <div> Ctrl+S : حفظ في نموذج المركبة</div>
+        <div> ← / → : تنقّل بين تبويبات النموذج</div>
+        <div> ? : فتح نافذة المساعدة</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة الدخول -->
+  <div class="modal" id="loginModal">
+    <div class="dialog">
+      <header>
+        <h3>🔐 تسجيل الدخول</h3>
+        <button id="closeLogin" class="secondary">✕</button>
+      </header>
+      <div class="body">
+        <div class="form-grid two-cols">
+          <div class="field">
+            <label>اختر الدور</label>
+            <select id="roleSelect">
+              <option value="viewer">مشاهد (قراءة فقط)</option>
+              <option value="editor">محرر</option>
+              <option value="admin">مدير</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>الرمز السري (PIN)</label>
+            <input id="pinInput" type="password" placeholder="مثال: 1234" />
+          </div>
+        </div>
+        <p class="hint">ملاحظة: الأدوار تُحفظ محليًا على هذا الجهاز فقط.</p>
+      </div>
+      <footer>
+        <button id="loginSubmit" class="save">دخول</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- نافذة إعدادات الأدوار -->
+  <div class="modal" id="acctModal">
+    <div class="dialog">
+      <header>
+        <h3>👤 إعدادات الأدوار</h3>
+        <button id="closeAcct" class="secondary">✕</button>
+      </header>
+      <div class="body">
+        <div class="form-grid two-cols">
+          <div class="field"><label>PIN المدير</label><input id="pinAdmin" placeholder="افتراضي: 0000"></div>
+          <div class="field"><label>PIN المحرر</label><input id="pinEditor" placeholder="افتراضي: 1111"></div>
+        </div>
+        <p class="hint">اترك الحقل فارغًا للإبقاء على القيمة الحالية. تُحفظ الإعدادات محليًا.</p>
+      </div>
+      <footer>
+        <button id="resetPIN" class="danger">🔄 إعادة تعيين PIN</button>
+        <button id="saveAcct" class="save">حفظ</button>
+      </footer>
+    </div>
+  </div>
+
+</body>
+</html>
